@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Follow the Squadron - Star Wars Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for the Star Wars theme */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent body scrollbars */
+        }
+        body {
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Use min-height */
+            background-color: #111827; /* Dark space background */
+            color: #e5e7eb;
+        }
+        /* Star background */
+        body::before {
+            content: "";
+            position: fixed; /* Use fixed to prevent scroll */
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            background-image: radial-gradient(#e5e7eb 0.5px, transparent 0.5px);
+            background-size: 30px 30px; /* Slightly larger stars */
+            opacity: 0.08; /* More subtle */
+            z-index: -1;
+        }
+        .game-container {
+            text-align: center;
+            background-color: rgba(31, 41, 55, 0.9); /* Slightly transparent dark container */
+            padding: 1rem 1.5rem; /* Reduced padding */
+            border-radius: 0.5rem;
+            box-shadow: 0 0 30px rgba(79, 70, 229, 0.6); /* Enhanced Indigo glow */
+            border: 1px solid #4f46e5;
+            position: relative;
+            width: 95%; /* Allow slightly more width */
+            max-width: 500px; /* Reduced max-width slightly */
+            max-height: 95vh; /* Limit height to viewport height */
+            overflow: hidden; /* Prevent internal overflow */
+            display: flex; /* Use flexbox for better internal layout */
+            flex-direction: column; /* Stack elements vertically */
+            backdrop-filter: blur(3px); /* Frosted glass effect */
+        }
+        .header-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem; /* Reduced margin */
+            flex-shrink: 0; /* Prevent header from shrinking */
+        }
+        .header-controls h1 { /* Adjust heading size for smaller screens */
+             font-size: 1.25rem; /* Equivalent to text-xl */
+             line-height: 1.75rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(10, minmax(0, 1fr));
+            grid-template-rows: repeat(10, minmax(0, 1fr));
+            gap: 2px;
+            margin: 0.75rem auto; /* Reduced margin */
+            border: 2px solid #4b5563;
+            width: 100%;
+            /* Max width relative to container */
+            max-width: min(350px, 80vw); /* Smaller max-width, responsive */
+            aspect-ratio: 1 / 1;
+            border-radius: 0.25rem;
+            cursor: crosshair;
+            background-color: #374151;
+            flex-shrink: 0; /* Prevent grid from shrinking excessively */
+        }
+        .tile {
+            width: 100%; /* Fill grid cell */
+            height: 100%; /* Fill grid cell */
+            background-color: #4b5563; /* Blank tile color */
+            border-radius: 2px; /* Very slight rounding */
+            transition: background-color 0.1s ease-in-out;
+        }
+        .head-tile { /* Lead ship */
+            background-color: #60a5fa; /* Light blue */
+            box-shadow: 0 0 6px 2px #60a5fa; /* Enhanced glow */
+            z-index: 5; /* Ensure head is visually above body */
+            position: relative; /* Needed for z-index */
+        }
+        .body-tile { /* Escort ships */
+            background-color: #f87171; /* Red */
+            box-shadow: 0 0 5px 1px #f87171; /* Enhanced glow */
+        }
+        .error-tile { /* Hit! */
+            background-color: #dc2626; /* Brighter red */
+            border: 2px solid #991b1b; /* Darker red border */
+            box-shadow: 0 0 8px 2px #ef4444;
+        }
+        .stats-display { /* Container for hearts and score */
+             display: flex;
+             justify-content: space-around;
+             align-items: center;
+             margin-bottom: 0.5rem; /* Reduced margin */
+             font-size: 0.9rem; /* Smaller font size for stats */
+             line-height: 1.25rem;
+             flex-shrink: 0; /* Prevent shrinking */
+        }
+        .hearts-container {
+            display: flex; /* Use flex for alignment */
+            align-items: center;
+            gap: 0.3rem; /* Space between label and icons */
+        }
+        .hearts-container .rebel-icon { /* Styling for the SVG icon */
+            display: inline-block;
+            width: 1.25rem; /* Slightly smaller icon */
+            height: 1.25rem;
+            vertical-align: middle;
+            filter: drop-shadow(0 0 2px #facc15); /* Yellow glow */
+        }
+        #status-message {
+             min-height: 1.25rem; /* Adjusted height */
+             color: #60a5fa; /* Light blue status text */
+             font-weight: 500;
+             font-size: 0.8rem; /* Smaller status message */
+             line-height: 1rem;
+             margin-bottom: 0.5rem; /* Reduced margin */
+             flex-shrink: 0; /* Prevent shrinking */
+        }
+        .game-over-message {
+            position: absolute;
+            inset: 0; /* Covers the container */
+            background-color: rgba(17, 24, 39, 0.9); /* More opaque overlay */
+            color: #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem; /* Smaller game over text */
+            line-height: 2rem;
+            border-radius: 0.5rem; /* Match container */
+            z-index: 10;
+            border: 1px solid #4f46e5;
+            backdrop-filter: blur(5px); /* Stronger blur */
+            padding: 1rem; /* Add padding */
+        }
+        .game-over-message .text-lg { /* Adjust final score size */
+            font-size: 1.1rem;
+            line-height: 1.5rem;
+        }
+        .action-button { /* Common style for buttons */
+            margin-top: 0.75rem; /* Reduced margin */
+            padding: 0.5rem 1rem; /* Reduced padding */
+            font-size: 0.8rem; /* Smaller button text */
+            font-family: 'Orbitron', sans-serif; /* Ensure font */
+            color: #e5e7eb; /* Light text */
+            background-color: #4f46e5; /* Indigo background */
+            border: 1px solid #818cf8; /* Lighter indigo border */
+            border-radius: 0.25rem; /* Sharper corners */
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase; /* Uppercase text */
+            letter-spacing: 0.05em; /* Slight letter spacing */
+            flex-shrink: 0; /* Prevent button shrinking */
+        }
+        .action-button:hover {
+            background-color: #6366f1; /* Lighter indigo on hover */
+            box-shadow: 0 0 12px #6366f1; /* Brighter hover glow */
+            color: #fff;
+        }
+        .restart-top-button { /* Specific style for top restart button */
+             padding: 0.3rem 0.6rem; /* Reduced padding */
+             font-size: 0.7rem; /* Smaller text */
+             background-color: #4b5563; /* Gray background */
+             border-color: #9ca3af; /* Lighter gray border */
+             margin-top: 0; /* Remove top margin */
+        }
+        .restart-top-button:hover {
+             background-color: #6b7280; /* Lighter gray on hover */
+             box-shadow: 0 0 10px #9ca3af;
+             color: #fff;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="header-controls">
+             <h1 class="text-xl font-bold text-indigo-400">Follow the Squadron!</h1>
+             <button id="restart-top-button" class="action-button restart-top-button">Restart Mission</button>
+        </div>
+        <p class="text-xs text-gray-400 mb-1">Keep targeting computer on lead ship & escort!</p>
+        <p id="status-message" class="text-sm mb-2"></p>
+        <div class="stats-display">
+            <div id="hearts-display" class="hearts-container">
+                <span>Pilots:</span>
+                <span id="hearts-icons">
+                    </span>
+            </div>
+            <div id="score-display">
+                Score: <span id="score">0</span>
+            </div>
+        </div>
+        <div id="game-grid" class="grid">
+            </div>
+        <button id="continue-button" class="action-button hidden">Continue Mission</button>
+
+        <div id="game-over" class="game-over-message hidden">
+            <div>Mission Failed!</div>
+            <div class="text-lg mt-1">Final Score: <span id="final-score">0</span></div>
+            <button id="restart-button" class="action-button">Restart Mission</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Configuration ---
+        const GRID_SIZE = 10;
+        const INITIAL_HEARTS = 5;
+        const INITIAL_SPEED = 500;
+        const MIN_SPEED = 100;
+        const SPEED_INCREMENT_INTERVAL = 3000;
+        const SPEED_DECREASE = 25;
+        const RANDOM_TURN_CHANCE = 0.25;
+        // SVG for Rebel Alliance Symbol
+        const HEART_SVG = `
+            <svg class="rebel-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#facc15">
+                <path fill-rule="evenodd" d="M12.963 2.286a.75.75 0 0 0-1.927 0l-7.5 4.25A.75.75 0 0 0 3 7.284v10.932a.75.75 0 0 0 .936.741l7.064-2.649a.75.75 0 0 1 .577 0l7.064 2.649a.75.75 0 0 0 .936-.741V7.284a.75.75 0 0 0-.536-.724l-7.5-4.25ZM14.25 13.5a.75.75 0 1 0-1.5 0v2.625H12a.75.75 0 0 0 0 1.5h.75V19.5a.75.75 0 1 0 1.5 0v-1.875H15a.75.75 0 1 0 0-1.5h-.75V13.5Z" clip-rule="evenodd" />
+                <path d="M11.25 7.5a.75.75 0 1 0-1.5 0v4.5h-1.5a.75.75 0 1 0 0 1.5h1.5V15a.75.75 0 1 0 1.5 0v-1.5h1.5a.75.75 0 1 0 0-1.5h-1.5V7.5Z" />
+            </svg>
+        `;
+
+        // --- DOM Elements ---
+        const gridElement = document.getElementById('game-grid');
+        const heartsIconsElement = document.getElementById('hearts-icons'); // Target for SVG icons
+        const scoreElement = document.getElementById('score');
+        const gameOverElement = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+        const restartButton = document.getElementById('restart-button'); // Game over restart
+        const restartTopButton = document.getElementById('restart-top-button'); // Always visible restart
+        const continueButton = document.getElementById('continue-button'); // Continue after life loss
+        const scoreDisplayElement = document.getElementById('score-display');
+        const statusMessageElement = document.getElementById('status-message');
+
+        // --- Game State Variables ---
+        let hearts;
+        let snake; // Renamed from squadron for clarity in code
+        let direction;
+        let currentSpeed;
+        let gameInterval;
+        let speedInterval;
+        let scoreInterval;
+        let score;
+        let isGameOver;
+        let gameStarted; // Is the snake currently moving?
+        let isPaused; // Is the game paused after losing a life?
+        let tiles; // 2D array for tile elements
+        let lastErrorTile = null; // To store the tile that caused the last error
+
+        // --- Game Initialization (Full Reset) ---
+        function initGame() {
+            hearts = INITIAL_HEARTS;
+            isGameOver = false;
+            score = 0; // Reset score ONLY for a new game
+
+            clearAllIntervals(); // Clear any running intervals
+
+            // Reset UI elements
+            gameOverElement.classList.add('hidden');
+            continueButton.classList.add('hidden'); // Ensure continue button is hidden on init
+            gridElement.innerHTML = ''; // Clear grid content
+
+            clearErrorHighlight();
+            lastErrorTile = null;
+
+            // Create grid tiles
+            tiles = [];
+            for (let y = 0; y < GRID_SIZE; y++) {
+                tiles[y] = [];
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const tile = document.createElement('div');
+                    tile.classList.add('tile');
+                    tile.dataset.x = x; // Store coordinates
+                    tile.dataset.y = y;
+                    tile.addEventListener('mouseover', handleMouseOverTile);
+                    gridElement.appendChild(tile);
+                    tiles[y][x] = tile; // Store reference
+                }
+            }
+
+            // Prepare for the first round
+            prepareRound();
+        }
+
+        // --- Prepare Round (Used for initial start and after losing a life via Continue) ---
+        function prepareRound() {
+            // Reset round-specific state
+            gameStarted = false; // Not moving yet
+            isPaused = false; // Not paused
+            currentSpeed = INITIAL_SPEED; // Reset speed
+            snake = []; // Reset snake array
+
+             clearAllIntervals(); // Ensure intervals are clear before starting round setup
+             clearErrorHighlight(); // Clear red tile highlight
+             lastErrorTile = null;
+
+            // Hide continue button, show start message
+            continueButton.classList.add('hidden'); // Ensure continue button is hidden when preparing round
+            statusMessageElement.textContent = "Acquire target lock to begin!";
+            updateHeartsDisplay();
+            updateScoreDisplay(); // Update score display (will show persistent score)
+
+            // Initialize snake in the center based on current hearts
+            const startX = Math.floor(GRID_SIZE / 2);
+            const startY = Math.floor(GRID_SIZE / 2);
+            snake.push({ x: startX, y: startY }); // Head
+
+            // Add body parts based on *current* hearts count
+            for (let i = 1; i < hearts; i++) {
+                 snake.push({ x: startX, y: startY }); // Place initially at same spot
+            }
+             // Ensure snake length doesn't exceed hearts (safety check)
+             while (snake.length > hearts && hearts > 0) {
+                 snake.pop();
+             }
+
+            // Set initial random direction for the round
+            const possibleDirections = [{dx: 0, dy: -1}, {dx: 0, dy: 1}, {dx: 1, dy: 0}, {dx: -1, dy: 0}];
+            direction = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
+
+            // Initial draw for the round - snake is visible but not moving
+            drawSnake();
+        }
+
+
+        // --- Game Loop ---
+        function gameLoop() {
+            // Should only run when game is active (started and not paused/over)
+            if (isGameOver || !gameStarted || isPaused) return;
+            moveSnake();
+            drawSnake();
+        }
+
+        // --- Snake Movement ---
+        function moveSnake() {
+            // Calculate new head position
+            let newHeadX = snake[0].x + direction.dx;
+            let newHeadY = snake[0].y + direction.dy;
+
+            // --- Boundary and Direction Change Logic ---
+            let changeDirection = false;
+            if (newHeadX < 0 || newHeadX >= GRID_SIZE || newHeadY < 0 || newHeadY >= GRID_SIZE) {
+                changeDirection = true; // Hit boundary, must change direction
+            } else {
+                 // Random chance to change direction even if not hitting a wall
+                 if (Math.random() < RANDOM_TURN_CHANCE) {
+                     changeDirection = true;
+                 }
+            }
+
+            if (changeDirection) {
+                const possibleDirections = [ {dx: 0, dy: -1}, {dx: 0, dy: 1}, {dx: 1, dy: 0}, {dx: -1, dy: 0} ];
+                // Filter out the opposite direction
+                const validDirections = possibleDirections.filter(d => d.dx !== -direction.dx || d.dy !== -direction.dy);
+                // Filter out directions that would immediately hit a wall
+                 const safeDirections = validDirections.filter(d => {
+                    const nextX = snake[0].x + d.dx; const nextY = snake[0].y + d.dy;
+                    return nextX >= 0 && nextX < GRID_SIZE && nextY >= 0 && nextY < GRID_SIZE;
+                });
+
+                // Choose a random safe direction if possible, otherwise any valid one
+                if (safeDirections.length > 0) { direction = safeDirections[Math.floor(Math.random() * safeDirections.length)]; }
+                else if (validDirections.length > 0) { direction = validDirections[Math.floor(Math.random() * validDirections.length)]; }
+                // (If no valid directions, keep old one - unlikely in 10x10)
+
+                // Recalculate new head position based on the *new* direction
+                newHeadX = snake[0].x + direction.dx;
+                newHeadY = snake[0].y + direction.dy;
+
+                 // Final boundary check after potentially changing direction (corner case)
+                 if (newHeadX < 0 || newHeadX >= GRID_SIZE || newHeadY < 0 || newHeadY >= GRID_SIZE) {
+                    direction.dx = -direction.dx; direction.dy = -direction.dy; // Reverse
+                    newHeadX = snake[0].x + direction.dx; newHeadY = snake[0].y + direction.dy;
+                 }
+            }
+
+            // Create new head object
+            const newHead = { x: newHeadX, y: newHeadY };
+
+            // Move body: Insert new head, remove tail if needed
+            snake.unshift(newHead); // Add new head to the beginning
+            // Keep snake length consistent with hearts
+            while (snake.length > hearts && hearts > 0) {
+                 snake.pop(); // Remove the tail segment
+            }
+        }
+
+        // --- Drawing (Updated for Overlap Priority) ---
+        function drawSnake() {
+             // 1. Clear all previous snake/head classes from all tiles
+             tiles.flat().forEach(tile => {
+                 tile.classList.remove('head-tile', 'body-tile');
+             });
+
+             // 2. Draw body segments first (iterate from tail up to neck)
+             for (let i = snake.length - 1; i > 0; i--) {
+                 const segment = snake[i];
+                 // Check segment is valid before accessing tiles array
+                 if (segment.y >= 0 && segment.y < GRID_SIZE && segment.x >= 0 && segment.x < GRID_SIZE) {
+                    const tileElement = tiles[segment.y][segment.x];
+                    // Ensure tile exists and isn't the error tile
+                    if (tileElement && !tileElement.classList.contains('error-tile')) {
+                         tileElement.classList.add('body-tile');
+                    }
+                 }
+             }
+
+             // 3. Draw the head segment last (index 0)
+             const headSegment = snake[0];
+             if (headSegment.y >= 0 && headSegment.y < GRID_SIZE && headSegment.x >= 0 && headSegment.x < GRID_SIZE) {
+                 const headTileElement = tiles[headSegment.y][headSegment.x];
+                 // Ensure tile exists and isn't the error tile
+                 if (headTileElement && !headTileElement.classList.contains('error-tile')) {
+                     // Remove body class if head overlaps body, then add head class
+                     headTileElement.classList.remove('body-tile');
+                     headTileElement.classList.add('head-tile');
+                 }
+             }
+        }
+
+        // --- Player Interaction ---
+        function handleMouseOverTile(event) {
+            // Ignore if game over, paused, or not started yet (unless starting)
+            if (isGameOver || isPaused) return;
+
+            const tile = event.target;
+
+            if (!gameStarted) {
+                // Start the game if hovering over snake
+                if (tile.classList.contains('head-tile') || tile.classList.contains('body-tile')) {
+                    startGame();
+                }
+            } else {
+                // Game is running, check for hitting a blank tile
+                if (!tile.classList.contains('head-tile') && !tile.classList.contains('body-tile')) {
+                    // Pass the specific tile that caused the error
+                    loseHeart(tile);
+                }
+            }
+        }
+
+        // --- Game Start Function ---
+        function startGame() {
+            // Prevent starting if already started, paused, or game over
+            if (gameStarted || isPaused || isGameOver) return;
+
+            gameStarted = true;
+            isPaused = false; // Ensure not paused
+            statusMessageElement.textContent = ""; // Clear status message
+
+            clearAllIntervals(); // Clear just in case before starting new ones
+            gameInterval = setInterval(gameLoop, currentSpeed);
+            speedInterval = setInterval(increaseSpeed, SPEED_INCREMENT_INTERVAL);
+            scoreInterval = setInterval(updateScore, 1000);
+        }
+
+
+        // --- Game Mechanics ---
+        function loseHeart(errorTile) { // Accept the tile that caused the error
+            if (isGameOver || !gameStarted || isPaused) return; // Extra safety
+
+            hearts--;
+
+            // Stop the game immediately
+            gameStarted = false;
+            isPaused = true; // Set paused state
+            clearAllIntervals();
+            updateHeartsDisplay(); // Update hearts display immediately
+
+            // Highlight the error tile
+            if (errorTile) {
+                clearErrorHighlight(); // Clear previous highlight first
+                errorTile.classList.add('error-tile');
+                lastErrorTile = errorTile; // Store reference
+            }
+
+            if (hearts <= 0) {
+                endGame(); // Truly game over
+            } else {
+                // Pause and show Continue button
+                statusMessageElement.textContent = "Lost lock! Click Continue to re-engage.";
+                continueButton.classList.remove('hidden'); // Explicitly show continue button
+            }
+        }
+
+        function increaseSpeed() {
+            // Speed only increases when game is actively running
+            if (isGameOver || !gameStarted || isPaused || currentSpeed <= MIN_SPEED) return;
+            currentSpeed -= SPEED_DECREASE;
+            currentSpeed = Math.max(currentSpeed, MIN_SPEED);
+
+            // Reset the game loop interval with the new speed
+            clearInterval(gameInterval);
+            gameInterval = setInterval(gameLoop, currentSpeed);
+        }
+
+         function updateScore() {
+             // Score only updates when game is actively running
+             if (isGameOver || !gameStarted || isPaused) return;
+             score++;
+             updateScoreDisplay();
+         }
+
+         // --- Utility Functions ---
+         function clearAllIntervals() {
+             clearInterval(gameInterval);
+             clearInterval(speedInterval);
+             clearInterval(scoreInterval);
+             gameInterval = null;
+             speedInterval = null;
+             scoreInterval = null;
+         }
+
+         function clearErrorHighlight() {
+            if (lastErrorTile) {
+                lastErrorTile.classList.remove('error-tile');
+                lastErrorTile = null; // Also clear the reference
+            }
+         }
+
+        // --- UI Updates ---
+        function updateHeartsDisplay() {
+            // Use the HEART_SVG constant to generate icons
+            let iconsHTML = '';
+            for (let i = 0; i < Math.max(0, hearts); i++) {
+                iconsHTML += HEART_SVG;
+            }
+            heartsIconsElement.innerHTML = iconsHTML; // Set the innerHTML for the icons container
+        }
+
+         function updateScoreDisplay() {
+            scoreElement.textContent = score;
+         }
+
+        // --- Game Over ---
+        function endGame() {
+            isGameOver = true;
+            gameStarted = false;
+            isPaused = false; // Ensure not paused
+            clearAllIntervals();
+
+            gameOverElement.classList.remove('hidden');
+            finalScoreElement.textContent = score; // Display the final persistent score
+            statusMessageElement.textContent = "Mission Failed!";
+            continueButton.classList.add('hidden'); // Ensure continue button is hidden on game over
+
+            // Optional: Clear snake/error highlight on game over screen
+            clearErrorHighlight();
+            tiles.flat().forEach(tile => {
+                 tile.classList.remove('head-tile', 'body-tile');
+            });
+        }
+
+        // --- Event Listeners ---
+        // Restart button on Game Over screen
+        restartButton.addEventListener('click', initGame);
+        // Always visible Restart button at the top
+        restartTopButton.addEventListener('click', initGame);
+        // Continue button after losing a life
+        continueButton.addEventListener('click', () => {
+            if (!isGameOver && isPaused) { // Check if paused and not game over
+                 prepareRound(); // This function hides the continue button again
+            }
+        });
+
+        // --- Initial Game Setup ---
+        window.onload = initGame;
+
+    </script>
+
+</body>
+</html>
